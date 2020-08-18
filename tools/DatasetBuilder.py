@@ -48,14 +48,6 @@ class DatasetBuilder:
         assert (self.df.shape[0] > shiftCount), "Shift count can not exceed number of rows in the dataframe."       
         self.df = self.df[columnNames].shift(shiftCount)
 
-        #columns = self.df[columnNames]
-        #shiftedColumns = columns.shift(shiftCount)
-        
-        #for colName in columnNames:
-        #    idx = self.df.columns.get_loc(colName)
-        #    self.remove_columns(colName)
-        #    self.df.insert(loc=idx, column=colName,value=shiftedColumns[colName])
-        
         if keepNaNRows:
             return
         else:
