@@ -252,6 +252,15 @@ class DatasetBuilder:
         self.df = self.df.loc[self.df['month'] >= monthFrom]
         self.df = self.df.loc[self.df['month'] < monthTo]
         
+
+    def encode_cyclical(self, columnName, stepsInCycle):
+        """
+        Appends the dataset with cyclical encoding of the given columns containing cyclical data.
+        """
+        self.df['sin_'+columnName] = np.sin(2*np.pi*self.df[columnName]/stepsInCycle)
+        self.df['cos_'+columnName] = np.cos(2*np.pi*self.df[columnName]/stepsInCycle)
+            
+        self.remove_columns(columnName)
         
     def remove_nan_rows(self):
         None
