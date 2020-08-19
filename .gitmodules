@@ -1,0 +1,3 @@
+[submodule "grain-price-data"]
+	path = grain-price-data
+	url = https://github.com/albergren/grain-price-data
