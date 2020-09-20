@@ -1,14 +1,26 @@
 #!/usr/bin/env python
 
 from pandasdmx import Request
-import datasources as ds
+import datetime
 import pandas as pd
+import os
+import sys
+# need better way to deal with paths to modules
+sys.path.append('grain-price-data/')
+print(sys.path)
+
+import datasources as ds
 
 
 start_year = ds.wheat_trade_data['start_year']
 end_year = ds.wheat_trade_data['end_year']
 estat = Request(ds.wheat_trade_data['provider'])
 reporters = ds.wheat_trade_data['reporters']
+dest = ds.wheat_trade_data['destination'] + "_"+ str(datetime.date.today()) + '/'
+
+if not os.path.isdir(dest):
+    os.mkdir(dest)
+
 
 for reporter in reporters:
     
@@ -40,6 +52,6 @@ for reporter in reporters:
         df = pd.concat(trade_data)
 
     dataset_name = 'wheat_importExport_' + reporter + '_monthly_raw.csv'
-    df.to_csv(dataset_name)
+    df.to_csv(dest + dataset_name)
 
 
