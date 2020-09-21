@@ -7,8 +7,6 @@ import os
 import sys
 # need better way to deal with paths to modules
 sys.path.append('grain-price-data/')
-print(sys.path)
-
 import datasources as ds
 
 
@@ -16,7 +14,7 @@ start_year = ds.wheat_trade_data['start_year']
 end_year = ds.wheat_trade_data['end_year']
 estat = Request(ds.wheat_trade_data['provider'])
 reporters = ds.wheat_trade_data['reporters']
-dest = ds.wheat_trade_data['destination'] + "_"+ str(datetime.date.today()) + '/'
+dest = ds.wheat_trade_data['destination']
 
 if not os.path.isdir(dest):
     os.mkdir(dest)
