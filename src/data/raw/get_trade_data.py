@@ -34,10 +34,10 @@ for reporter in reporters:
 
         parameters = {
             'startPeriod': year,
-            'endPeriod': year + 1
+            'endPeriod': year
         }
 
-        print("Downloading data for", year)
+        print("Downloading data for " + reporter + year)
 
         resp = estat.data(
             ds.wheat_trade_data['dataset'],
@@ -47,7 +47,7 @@ for reporter in reporters:
 
         trade_data.append(resp.to_pandas())
 
-        df = pd.concat(trade_data)
+    df = pd.concat(trade_data)
 
     dataset_name = 'wheat_importExport_' + reporter + '_monthly_raw.csv'
     df.to_csv(dest + dataset_name)
