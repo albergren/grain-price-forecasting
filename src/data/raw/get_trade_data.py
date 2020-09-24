@@ -37,7 +37,7 @@ for reporter in reporters:
             'endPeriod': year
         }
 
-        print("Downloading data for " + reporter + year)
+        print("Downloading data for " + reporter + " " +  str(year))
 
         resp = estat.data(
             ds.wheat_trade_data['dataset'],
