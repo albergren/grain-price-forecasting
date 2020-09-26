@@ -33,15 +33,22 @@ for reporter in reporters:
             key=keys,
             params=parameters 
         )
-    data.append(resp.to_pandas())
+    data.append(resp.to_pandas().to_frame().reset_index())
     
     resp = estat.data(
             ds.wheat_production_data['dataset'],
             key=keys,
             params=parameters 
         )
-    data.append(resp.to_pandas())
+    # rename dimensions to same as in old data
+    df = resp.to_pandas().to_frame().reset_index()
+    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'HU_EU')] = 'HU'
+    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'PR_HU_EU')] = 'PR'
+    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'YI_HU_EU')] = 'YI'    
+    
+    data.append(df)
     df = pd.concat(data)
-
+    
     dataset_name = 'wheat_production_' + reporter + '_yearly_raw.csv'
-    df.to_csv(dest + dataset_name)
+    df.to_csv(dest + dataset_name,index=False)
+    
