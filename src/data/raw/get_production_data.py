@@ -21,7 +21,6 @@ if not os.path.isdir(dest):
     os.mkdir(dest)
 
 for reporter in reporters:
-
     data = []
     keys = {
         'GEO' : reporter,
@@ -42,13 +41,15 @@ for reporter in reporters:
         )
     # rename dimensions to same as in old data
     df = resp.to_pandas().to_frame().reset_index()
-    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'HU_EU')] = 'HU'
-    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'PR_HU_EU')] = 'PR'
-    df['STRUCPRO'].loc[(df['STRUCPRO'] == 'YI_HU_EU')] = 'YI'    
-    
+    df.loc[(df['STRUCPRO'] == 'HU_EU'),'STRUCPRO'] = 'HU'   
+    df.loc[(df['STRUCPRO'] == 'PR_HU_EU'),'STRUCPRO'] = 'PR'
+    df.loc[(df['STRUCPRO'] == 'YI_HU_EU'), 'STRUCPRO'] = 'YI'    
     data.append(df)
     df = pd.concat(data)
     
-    dataset_name = 'wheat_production_' + reporter + '_yearly_raw.csv'
+    dataset_name = (ds.wheat_production_data['filename'][0] 
+                    + reporter 
+                    + ds.wheat_production_data['filename'][1])
+    
     df.to_csv(dest + dataset_name,index=False)
     

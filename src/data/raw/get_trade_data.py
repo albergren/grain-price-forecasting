@@ -48,8 +48,10 @@ for reporter in reporters:
         trade_data.append(resp.to_pandas())
 
     df = pd.concat(trade_data)
-
-    dataset_name = 'wheat_importExport_' + reporter + '_monthly_raw.csv'
+    dataset_name = (ds.wheat_trade_data['filename'][0] 
+                    + reporter 
+                    + ds.wheat_trade_data['filename'][1])
+    
     df.to_csv(dest + dataset_name)
 
 
