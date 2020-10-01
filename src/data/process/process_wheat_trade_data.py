@@ -17,7 +17,7 @@ end_year = ds.wheat_trade_data['end_year']
 reporters = ds.wheat_trade_data['reporters']
 trade_filename= ds.wheat_trade_data['filename']
 prod_filename = ds.wheat_production_data['filename']
-
+dest = '/home/martin/gp/grain-price-forcasting/grain-price-data/processed/'
 
 
 partners_to_drop = ['EU_EXTRA','EU_INTRA','WORLD','EA19_EXTRA','EA19_INTRA',
@@ -27,28 +27,32 @@ partners_to_drop = ['EU_EXTRA','EU_INTRA','WORLD','EA19_EXTRA','EA19_INTRA',
 years_to_drop = list(map(str, range(int(start_year),
                                     int(end_year))))
 
-#path_to_data_directory = os.fsencode(ds.wheat_trade_data["destination"])
-path_to_importExport_data = '/home/martin/gp/grain-price-forcasting/src/data/process/test/importExport_data/'
-path_to_production_data = '/home/martin/gp/grain-price-forcasting/src/data/process/test/production_data/'
-
 def calculate_feature(reporter, data):
+
     feature = [0]
+    time_idx = [0]
+
     for index, row in data.iterrows():
+
         result  = (feature[-1] + row['production'] + row['import']) - row['export']
+        time_idx.append(index)
         feature.append(result)
-    feature = pd.DataFrame({reporter : feature})
+        
+    feature = pd.DataFrame(feature[1:],index=time_idx[1:], columns=[reporter])
     return feature
 
-df_features = pd.date_range(ds.wheat_production_data['start_year'],ds.wheat_production_data['end_year'])
-reporters = ['DK','FR']
-
-for reporter in reporters:
-    filename = (trade_filename[0] + reporter + trade_filename[1])
-    df = pd.read_csv(path_to_importExport_data + filename)
-    df = df[df['value'].notna()]
+def process_production_data(data):
+    processed_data_df = data[data['STRUCPRO'] == PRODUCTION_STRUCPRO_CODE]    
+    processed_data_df = db.DatasetBuilder(processed_data_df)
+    processed_data_df.resample_year_to_month('TIME_PERIOD')
+    processed_data_df = processed_data_df.get_set()
+    processed_data_df['value'] = processed_data_df['value'] * 10000
     
-    production_data_filename = (prod_filename[0] + reporter + prod_filename[1])
+    return processed_data_df
 
+def process_importExport_data(data):
+    df = data[data['value'].notna()]
+    
     # Drop partners that are aggregate and rows with yearly sums
     # and set value column to numeric
     df = df[~df['PARTNER'].isin(partners_to_drop)]
@@ -57,30 +61,62 @@ for reporter in reporters:
     df = df.drop_duplicates()
     df['TIME_PERIOD'] = pd.to_datetime(df['TIME_PERIOD'])
     
-    
     # Split into import and export
     df_import = df[df['FLOW'] == IMPORT_FLOW_CODE]
     df_export = df[df['FLOW'] == EXPORT_FLOW_CODE]
    
-
     # Group periods
     df_import = df_import.groupby('TIME_PERIOD')['value'].sum() 
     df_export = df_export.groupby('TIME_PERIOD')['value'].sum() 
-    
-    
-    df_production = pd.read_csv(path_to_production_data + production_data_filename)
-    df_production = df_production[df_production['STRUCPRO'] == PRODUCTION_STRUCPRO_CODE]
-    
-    df_production = db.DatasetBuilder(df_production)
-    df_production.resample_year_to_month('TIME_PERIOD')
-    df_production = df_production.get_set()
-    df_production =  df_production.fillna(0)
-    df_production['value'] = df_production['value'] * 10000
 
-    new_df = pd.concat([df_production['value'], df_export, df_import], axis=1)   # time_period has to be index 
-    column_names = ['production','export','import']
-    new_df.columns = column_names
-    feature = calculate_feature(reporter, new_df)
-    df_features = pd.concat([df_features,feature], axis=1) # concat on df with datetime index instead
+    return df_import, df_export
+
+
+path_to_importExport_data = ds.wheat_trade_data["destination"
+path_to_production_data =  ds.wheat_production_data["destination"]
+
+
+df_features = pd.DataFrame()
+for reporter in reporters:
+
+    # Get and process trade data
+    trade_data_filename = (trade_filename[0] + reporter + trade_filename[1])
+
+    try:
+        df_trade_data = pd.read_csv(path_to_importExport_data + trade_data_filename)
+    except IOError:
+        print("Error:\tFile " + trade_data_filename + " not found!\n\tOmitting processing of reporter: " + reporter)
+        break
+
+    df_import_processed, df_export_processed = process_importExport_data(df_trade_data)
     
-print(df_features)
+    # Get and process production data
+    production_data_filename = (prod_filename[0] + reporter + prod_filename[1])
+    try:
+        df_production = pd.read_csv(path_to_production_data + production_data_filename)
+    
+    except IOError:
+        print("Warning: File " + trade_data_filename + " not found! Omitting processing of reporter: " + reporter)
+        break
+    
+    df_production_processed = process_production_data(df_production)
+
+    df = pd.concat([df_production_processed['value'],
+                        df_export_processed,
+                        df_import_processed], axis=1)
+    df = df.fillna(0)
+
+    column_names = ['production','export','import']
+    df.columns = column_names
+    feature = calculate_feature(reporter, df)
+    df_features = pd.concat([df_features,feature], axis=1)
+
+
+dataset_name = 'tradeProductionBalance_monthly_processed.csv'
+print("Writing data to file...")
+try:
+    df_features.to_csv(dest + dataset_name)
+    print("File '" + dataset_name + "' created!") 
+except IOError:
+    print("Error:\t File could not be written!")
+          
