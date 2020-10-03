@@ -27,14 +27,19 @@ partners_to_drop = ['EU_EXTRA','EU_INTRA','WORLD','EA19_EXTRA','EA19_INTRA',
 years_to_drop = list(map(str, range(int(start_year),
                                     int(end_year))))
 
-def calculate_feature(reporter, data):
+
+path_to_importExport_data = ds.wheat_trade_data["destination"]
+path_to_production_data =  ds.wheat_production_data["destination"]
+df_features = pd.DataFrame()
+
+def calculate_feature(reporter, data, mean):
 
     feature = [0]
     time_idx = [0]
 
     for index, row in data.iterrows():
 
-        result  = (feature[-1] + row['production'] + row['import']) - row['export']
+        result  = ((feature[-1] * mean) + row['production'] + row['import']) - row['export']
         time_idx.append(index)
         feature.append(result)
         
@@ -43,12 +48,13 @@ def calculate_feature(reporter, data):
 
 def process_production_data(data):
     processed_data_df = data[data['STRUCPRO'] == PRODUCTION_STRUCPRO_CODE]    
-    processed_data_df = db.DatasetBuilder(processed_data_df)
-    processed_data_df.resample_year_to_month('TIME_PERIOD')
-    processed_data_df = processed_data_df.get_set()
     processed_data_df['value'] = processed_data_df['value'] * 10000
+    processed_data_df = db.DatasetBuilder(processed_data_df)
+    processed_data_df_yearly = processed_data_df.get_set()
+    processed_data_df.resample_year_to_month('TIME_PERIOD')
+    processed_data_df_monthly = processed_data_df.get_set()
     
-    return processed_data_df
+    return processed_data_df_monthly, processed_data_df_yearly
 
 def process_importExport_data(data):
     df = data[data['value'].notna()]
@@ -71,12 +77,7 @@ def process_importExport_data(data):
 
     return df_import, df_export
 
-
-path_to_importExport_data = ds.wheat_trade_data["destination"
-path_to_production_data =  ds.wheat_production_data["destination"]
-
-
-df_features = pd.DataFrame()
+reporters = ['DK']
 for reporter in reporters:
 
     # Get and process trade data
@@ -85,10 +86,12 @@ for reporter in reporters:
     try:
         df_trade_data = pd.read_csv(path_to_importExport_data + trade_data_filename)
     except IOError:
-        print("Error:\tFile " + trade_data_filename + " not found!\n\tOmitting processing of reporter: " + reporter)
+        print("Error:\tFile " + trade_data_filename +
+              " not found!\n\tOmitting processing of reporter: " + reporter)
         break
 
     df_import_processed, df_export_processed = process_importExport_data(df_trade_data)
+
     
     # Get and process production data
     production_data_filename = (prod_filename[0] + reporter + prod_filename[1])
@@ -96,10 +99,18 @@ for reporter in reporters:
         df_production = pd.read_csv(path_to_production_data + production_data_filename)
     
     except IOError:
-        print("Warning: File " + trade_data_filename + " not found! Omitting processing of reporter: " + reporter)
+        print("Warning: File " + trade_data_filename +
+              " not found! Omitting processing of reporter: " + reporter)
         break
-    
-    df_production_processed = process_production_data(df_production)
+
+    df_production_processed, df_production_processed_yearly  = process_production_data(df_production)
+    df_production_processed_yearly = df_production_processed_yearly.reset_index()
+    total_exports = (df_export_processed.groupby(by=[df_export_processed.index.year]).sum())
+    total_exports = total_exports.reset_index()
+
+
+    export_percentages  =  (total_exports['value'].T /  (df_production_processed_yearly['value']) ).T
+    exports_mean = export_percentages.mean()
 
     df = pd.concat([df_production_processed['value'],
                         df_export_processed,
@@ -108,7 +119,7 @@ for reporter in reporters:
 
     column_names = ['production','export','import']
     df.columns = column_names
-    feature = calculate_feature(reporter, df)
+    feature = calculate_feature(reporter, df, exports_mean)
     df_features = pd.concat([df_features,feature], axis=1)
 
 
