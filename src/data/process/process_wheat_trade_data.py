@@ -6,7 +6,7 @@ import sys
 sys.path.append('grain-price-data/')
 sys.path.append('tools/')
 import datasources as ds
-import DatasetBuilder as db
+from DatasetBuilder import DatasetBuilder
 
 IMPORT_FLOW_CODE = 1
 EXPORT_FLOW_CODE = 2
@@ -38,8 +38,7 @@ def calculate_feature(reporter, data, mean):
     time_idx = [0]
 
     for index, row in data.iterrows():
-
-        result  = ((feature[-1] * mean) + row['production'] + row['import']) - row['export']
+        result  = (feature[-1] + (row['production'] * mean) + row['import']) - row['export']
         time_idx.append(index)
         feature.append(result)
         
@@ -49,9 +48,10 @@ def calculate_feature(reporter, data, mean):
 def process_production_data(data):
     processed_data_df = data[data['STRUCPRO'] == PRODUCTION_STRUCPRO_CODE]    
     processed_data_df['value'] = processed_data_df['value'] * 10000
-    processed_data_df = db.DatasetBuilder(processed_data_df)
+    processed_data_df = DatasetBuilder(processed_data_df)
     processed_data_df_yearly = processed_data_df.get_set()
     processed_data_df.resample_year_to_month('TIME_PERIOD')
+    processed_data_df.shift_columns(processed_data_df.get_set().columns, 12)
     processed_data_df_monthly = processed_data_df.get_set()
     
     return processed_data_df_monthly, processed_data_df_yearly
@@ -77,12 +77,9 @@ def process_importExport_data(data):
 
     return df_import, df_export
 
-reporters = ['DK']
 for reporter in reporters:
 
-    # Get and process trade data
     trade_data_filename = (trade_filename[0] + reporter + trade_filename[1])
-
     try:
         df_trade_data = pd.read_csv(path_to_importExport_data + trade_data_filename)
     except IOError:
@@ -93,7 +90,6 @@ for reporter in reporters:
     df_import_processed, df_export_processed = process_importExport_data(df_trade_data)
 
     
-    # Get and process production data
     production_data_filename = (prod_filename[0] + reporter + prod_filename[1])
     try:
         df_production = pd.read_csv(path_to_production_data + production_data_filename)
